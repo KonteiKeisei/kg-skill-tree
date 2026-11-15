@@ -748,7 +748,7 @@ export class TreeDesigner extends DomApp {
       const patched = !foundry.utils.isEmpty(g.patch);
       const row = h("li",
         h("img", { src: g.img || "icons/svg/item-bag.svg", alt: "" }),
-        h("span.kgst-grant-name", { text: g.kind === "summon" ? `Summon: ${grantName(g)}` : grantName(g), "data-tooltip": g.uuid }),
+        h("span.kgst-grant-name", { text: g.kind === "summon" ? `Summon: ${grantName(g)}` : grantName(g), "data-tooltip": esc(g.uuid) }),
         patched ? h("span.kgst-patched", { text: "Patched", "data-tooltip": "Changed by this tree when granted. The source item is untouched." }) : null,
         g.kind === "summon" ? (() => {
           const c = input("text", "count", g.count, { size: "3", "data-tooltip": "How many to summon (a number or formula)" });

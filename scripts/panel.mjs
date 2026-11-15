@@ -264,7 +264,7 @@ export class SkillTreePanel {
             (() => {
               const o = tstate?.owned.find(x => x.id === id);
               if ( !o?.gm ) return null;
-              const tip = [o.level ? `Gained at level ${o.level}` : "", o.note].filter(Boolean).join(". ");
+              const tip = [o.level ? `Gained at level ${o.level}` : "", esc(o.note ?? "")].filter(Boolean).join(". ");
               return h("span.kgst-pill", { text: "Granted by the GM", "data-tooltip": tip || null });
             })())),
         h("div.kgst-detail-actions", actions)),

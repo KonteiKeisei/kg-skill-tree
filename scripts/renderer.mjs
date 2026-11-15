@@ -518,13 +518,16 @@ export class TreeView {
   }
 }
 
+/* Foundry reads a data-tooltip as HTML, so names from the tree are escaped. */
 function tooltipText(node, st, tree) {
-  const cost = node.cost ? `${node.cost} ${tree.currency.abbr}` : "free";
-  if ( st.owned ) return `${node.name}: unlocked`;
-  if ( st.available ) return `${node.name}: available, ${cost}`;
-  if ( st.blocked ) return `${node.name}: blocked by an exclusive choice`;
-  if ( st.met ) return `${node.name}: needs more ${tree.currency.abbr} (${cost})`;
-  return `${node.name}: locked, ${cost}`;
+  const name = esc(node.name);
+  const abbr = esc(tree.currency.abbr);
+  const cost = node.cost ? `${node.cost} ${abbr}` : "free";
+  if ( st.owned ) return `${name}: unlocked`;
+  if ( st.available ) return `${name}: available, ${cost}`;
+  if ( st.blocked ) return `${name}: blocked by an exclusive choice`;
+  if ( st.met ) return `${name}: needs more ${abbr} (${cost})`;
+  return `${name}: locked, ${cost}`;
 }
 
 /** The state legend shown under a tree on the sheet. */

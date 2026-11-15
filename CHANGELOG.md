@@ -1,12 +1,17 @@
 # Changelog
 
+## 0.2.1
+
+- Node names, GM notes and item links are escaped in tooltips, so a name with HTML in it shows as text.
+
 ## 0.2.0
 
 First public release. Tested on Foundry V14 (build 370) with dnd5e 6.0.6, on the default character sheet and Tidy 5e,
 as a GM and as a player, with and without Tidy 5e and KG PC History. Written for Foundry V13 with dnd5e 5.3.3 too,
 not yet tested there.
 
-- Node descriptions are cleaned before they are shown, so a tree file from someone else can't run scripts.
+- Node descriptions are cleaned of scripts before they are shown. (A tree file can still carry grant patches with
+  macros, by design, so only import trees from people you trust.)
 - Secret text in a granted item's description (GM notes in compendium items) shows to the GM only.
 - Grant patches: a node can change the item it grants (name, description, level prerequisite, and from imports
   effects, activities and macros) without touching the source compendium.
