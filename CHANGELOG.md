@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2
+
+- The tree stays sharp when zoomed in. It was drawn once at the fitted size and stretched, so text, rings and the
+  background went soft; now it is drawn again at the zoomed size as soon as you stop panning or zooming.
+
 ## 0.2.1
 
 - Node names, GM notes and item links are escaped in tooltips, so a name with HTML in it shows as text.

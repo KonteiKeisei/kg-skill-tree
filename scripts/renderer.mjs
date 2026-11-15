@@ -416,6 +416,10 @@ export class TreeView {
   #applyCamera() {
     this.camera.style.transform = `translate(${this.pan.x}px, ${this.pan.y}px) scale(${this.zoom})`;
     this.viewport.style.setProperty("--kgst-zoom", String(this.zoom));
+    // Smooth while moving, sharp once still (see .kgst-camera.moving in the styles).
+    this.camera.classList.add("moving");
+    clearTimeout(this._settle);
+    this._settle = setTimeout(() => this.camera.classList.remove("moving"), 200);
     // A fitted view isn't remembered as a camera: it is simply fitted again next time.
     if ( this.positioned && this.baseWidth ) this.emit("camera", this.autoFit ? null : this.camera_);
   }

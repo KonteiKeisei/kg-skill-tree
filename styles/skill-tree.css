@@ -151,7 +151,10 @@
 .kgst-viewport.panning { cursor: grabbing; }
 .kgst-viewport.linking { cursor: crosshair; }
 .kgst-viewport.drop-target { box-shadow: 0 0 0 3px var(--kgst-accent) inset; }
-.kgst-camera { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+/* will-change only while the camera moves: kept on, the browser scales a bitmap drawn at the fitted size and a zoomed
+   tree goes blurry. Dropped once the camera settles, so it is drawn again at the zoomed size. */
+.kgst-camera { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.kgst-camera.moving { will-change: transform; }
 .kgst-stage {
   position: relative; container-type: inline-size; box-shadow: 0 4px 28px rgba(0, 0, 0, 0.55); overflow: hidden;
   --kgst-node-color: #d4a64a;
