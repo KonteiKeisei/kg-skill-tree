@@ -46,7 +46,7 @@ export function treeState(actor, treeId) {
 export function unlockedTrees(actor) {
   if ( !isCharacter(actor) ) return [];
   const states = treeStates(actor);
-  return allTrees().filter(t => states[t.id]?.unlocked);
+  return allTrees().filter(t => t.kind !== 'equipment' && states[t.id]?.unlocked);
 }
 
 export function ownedIds(state) {
@@ -435,7 +435,20 @@ export async function grantItemData(grant) {
   delete data._id;
   data._stats ??= {};
   data._stats.compendiumSource = doc.pack ? doc.uuid : (doc._stats?.compendiumSource ?? doc.uuid);
-  return applyPatch(data, grant.patch);
+  applyPatch(data, grant.patch);
+  return applySpellUses(data, grant.spellUses);
+}
+
+/** Shared grant customization, applied to a copy of the source spell only. */
+export function applySpellUses(data, options) {
+  if(data.type!=='spell'||!options?.enabled)return data;
+  data.system.uses={max:String(options.max||'1'),spent:0,recovery:[{period:options.recovery||'lr',type:'recoverAll'}]};
+  data.system.method='innate';
+  data.system.preparation={...(data.system.preparation??{}),mode:'innate',prepared:true};
+  for(const activity of Object.values(data.system.activities??{})){
+    activity.consumption={...(activity.consumption??{}),spellSlot:false,targets:[{type:'itemUses',target:'',value:'1',scaling:{mode:'',formula:''}}]};
+  }
+  return data;
 }
 
 /** How many times the features granted by some nodes have been used. */

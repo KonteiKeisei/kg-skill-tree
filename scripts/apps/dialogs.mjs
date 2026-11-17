@@ -99,20 +99,20 @@ export async function promptAdjust(actor, tree) {
  * GM: grant a node outside the normal rules (a story reward, something that happened at the table).
  * @returns {Promise<{free: boolean, level: number, note: string}|null>}
  */
-export async function promptGmGrant(actor, tree, node, status) {
+export async function promptGmGrant(actor, tree, node, status, {equipment=null}={}) {
   const level = Number(actor.system?.details?.level) || 0;
   const unmet = (status?.reqs ?? []).filter(r => !r.ok).map(r => r.text);
   const result = await DialogV2.wait({
     window: { title: `Grant ${node.name}`, icon: "fa-solid fa-gift" },
     classes: ["kgst-dialog"],
     position: { width: 440 },
-    content: `<p>Give ${esc(actor.name)} <strong>${esc(node.name)}</strong> outside the normal rules.</p>
+      content: `<p>Give ${esc(actor.name)} <strong>${esc(node.name)}</strong>${equipment ? ` for ${esc(equipment.name)}` : ''} outside the normal rules.</p>
       ${unmet.length ? `<p class="hint">Requirements not met, and ignored: ${unmet.map(esc).join(", ")}.</p>` : ""}
       <label class="kgst-check"><input type="checkbox" name="free" checked>
         <span>Free (spend no ${esc(tree.currency.name)}). Untick to charge its cost of ${node.cost}.</span></label>
       <div class="form-group"><label>Gained at level</label><div class="form-fields">
         <input type="number" name="level" value="${level}" min="0" step="1"></div>
-        <p class="hint">For something that happened earlier. KG PC History records it at this level.</p></div>
+          <p class="hint">${equipment ? 'Recorded with this equipment unlock in its saved progress.' : 'For something that happened earlier. KG PC History records it at this level.'}</p></div>
       <div class="form-group"><label>Note</label><div class="form-fields">
         <input type="text" name="note" placeholder="What happened (optional)"></div></div>`,
     buttons: [

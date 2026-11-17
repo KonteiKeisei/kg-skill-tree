@@ -17,7 +17,7 @@ if ( !/^\d+\.\d+\.\d+$/.test(version ?? "") ) {
   process.exit(1);
 }
 
-const SHIP = ["module.json", "scripts", "styles", "templates", "README.md", "CHANGELOG.md", "LICENSE"];
+const SHIP = ["module.json", "scripts", "styles", "templates", "examples", "EQUIPMENT-TESTING.md", "README.md", "CHANGELOG.md", "LICENSE"];
 
 const manifestPath = join(ROOT, "module.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));

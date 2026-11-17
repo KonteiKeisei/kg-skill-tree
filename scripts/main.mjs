@@ -10,6 +10,7 @@ import { TreeManager } from "./apps/manager.mjs";
 import { TreeDesigner } from "./apps/designer.mjs";
 import { SkillTreeViewer, refreshViewers } from "./apps/viewer.mjs";
 import { unlockFor } from "./apps/dialogs.mjs";
+import { registerEquipment, equipmentRequest, equipmentView, equipmentItems } from './equipment.mjs';
 
 // Tidy fires its ready hook during its own setup; listen before anything else runs.
 registerTidy();
@@ -18,6 +19,7 @@ Hooks.once("init", () => {
   registerSettings();
   registerSheetHooks();
   registerEventHooks();
+  registerEquipment();
   if ( !patchCoreSheet() ) Hooks.once("setup", patchCoreSheet);
   // A counter update only needs to redraw the sheet when one of the character's trees pays out for it.
   setCountListener((actor, keys) => keys.some(k => k.startsWith("use:"))
@@ -28,6 +30,8 @@ Hooks.once("ready", () => {
   for ( const a of game.actors ) if ( isCharacter(a) && a.isOwner ) checkEarned(a, { quiet: true });
   game.modules.get(MODULE_ID).api = {
     trees: allTrees,
+    equipment: { request: equipmentRequest, view: equipmentView, items: equipmentItems,
+      open: async item => (await import('./apps/equipment.mjs')).openEquipmentItem(item) },
     getTree,
     saveTree,
     openManager: () => TreeManager.open(),

@@ -3,12 +3,17 @@ import { TreeManager } from "./apps/manager.mjs";
 import { refreshViewers } from "./apps/viewer.mjs";
 
 export function registerSettings() {
+  game.settings.register(MODULE_ID, 'sourcePack', { scope:'world', config:true, type:String, default:'',
+    name:'Reward source compendium', hint:'Optional pack ID for saved rewards. Empty creates a world Skill Tree Sources pack when needed.' });
+  game.settings.register(MODULE_ID, 'strictSources', { scope:'world', config:true, type:Boolean, default:false,
+    name:'Require compendium reward sources', hint:'Require node rewards to reference a compendium. Custom world items can be saved to a source pack from the designer.' });
   game.settings.register(MODULE_ID, "trees", {
     scope: "world",
     config: false,
     type: Object,
     default: {},
     onChange: () => {
+      if (game.ready) import('./equipment.mjs').then(m=>m.refreshEquipment()).catch(console.error);
       refreshCharacterSheets();
       refreshViewers();
       TreeManager.refresh();

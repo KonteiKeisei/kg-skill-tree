@@ -231,7 +231,7 @@ export function setCountListener(fn) {
  * @param {Actor} actor
  * @param {Record<string, number>} deltas
  */
-export function bump(actor, deltas, { force = false } = {}) {
+export function bump(actor, deltas, { force = false, itemUuid = null } = {}) {
   if ( !isCharacter(actor) || !actor.isOwner ) return;
   if ( !force && !game.settings.get(MODULE_ID, "trackEvents") ) return;
   const entries = Object.entries(deltas).filter(([, d]) => Number(d));
@@ -243,6 +243,7 @@ export function bump(actor, deltas, { force = false } = {}) {
     for ( const [k, d] of entries ) stats[k] = (Number(stats[k]) || 0) + Number(d);
     const render = onCounted ? onCounted(actor, entries.map(([k]) => k)) : true;
     await actor.update({ [`flags.${MODULE_ID}.stats`]: stats }, { render, kgSkillTreeCount: true });
+    Hooks.callAll(`${MODULE_ID}.counted`, actor, Object.fromEntries(entries), { itemUuid });
   }).catch(err => warn("Could not count an event", err));
   queues.set(key, next);
   next.finally(() => {
@@ -314,7 +315,7 @@ function onD20(type, rolls, data) {
     deltas.attack = 1;
     if ( rolls.some(r => r?.isCritical) ) deltas.crit = 1;
   }
-  bump(actor, deltas);
+  bump(actor, deltas, { itemUuid: data?.subject?.item?.uuid ?? (data?.subject?.documentName === 'Item' ? data.subject.uuid : null) });
 }
 
 function onDamage(rolls, data) {
@@ -322,7 +323,7 @@ function onDamage(rolls, data) {
   const actor = actorOf(data?.subject);
   if ( !isCharacter(actor) ) return;
   const total = rolls.reduce((n, r) => n + (Number(r?.total) || 0), 0);
-  if ( total > 0 ) bump(actor, { damage: total });
+  if ( total > 0 ) bump(actor, { damage: total }, { itemUuid: data?.subject?.item?.uuid ?? (data?.subject?.documentName === 'Item' ? data.subject.uuid : null) });
 }
 
 function onUseActivity(activity, usageConfig) {

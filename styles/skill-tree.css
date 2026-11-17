@@ -391,6 +391,55 @@
 .kgst-viewer .kgst-root { height: 100%; }
 .kgst-directory-btn { flex: 1 1 100%; }
 
+/* Equipment uses the same tree canvas and node details as actor trees. */
+.kgst-categories { display: flex; flex: none; gap: 0.35rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--kgst-line); }
+.kgst-equipment-host { flex: 1; min-height: 0; overflow-y: auto; }
+.kgst-equipment-picker { display: flex; align-items: center; gap: 0.4rem; flex: 1 1 14rem; min-width: 0; }
+.kgst-equipment-picker select { flex: 1; min-width: 0; }
+.kgst-equipment-identity { flex: 1 1 14rem; min-width: 0; }
+.kgst-equipment-location { margin: 0.3rem 0 0; color: var(--kgst-muted); font-size: 0.9em; overflow-wrap: anywhere; }
+.kgst-equipment .kgst-head-actions { flex-wrap: wrap; gap: 0.3rem; }
+.kgst-equipment .kgst-points { white-space: normal; }
+.kgst-equipment .kgst-frame { min-height: 140px; }
+.kgst-sized .kgst-equipment .kgst-panel { height: 100%; min-height: 0; }
+.kgst-sized .kgst-equipment .kgst-frame { flex: 1 1 0; aspect-ratio: auto; max-height: none; }
+.kgst-sized .kgst-equipment .kgst-detail { flex: 0 1 auto; max-height: 42%; overflow-y: auto; }
+.kgst-equipment-app .window-content { overflow: hidden; padding: 0.6rem; }
+.kgst-equipment-app .kgst-root { height: 100%; min-height: 0; }
+.kgst-equipment .kgst-detail-body { grid-template-columns: minmax(0, 1fr); }
+.kgst-equipment .kgst-detail-side { min-width: 0; }
+.kgst-equipment .kgst-equipment-grants { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.kgst-equipment-progress { flex: none; max-height: 25%; overflow-y: auto; }
+.kgst-item-badge { display: inline-flex; align-items: center; gap: 0.25rem; width: auto; height: auto; min-height: 0; margin: 0 0 0 0.4rem; padding: 0.05rem 0.3rem; font-size: 11px; line-height: 1.4; border: 1px solid #b99b55; border-radius: 3px; background: #332b1b; color: #f2dfad; vertical-align: middle; }
+.kgst-equipment-bonuses { padding-left: 1.2rem; margin: 0.3rem 0 0.6rem; }
+.kgst-equipment-progress { border: 1px solid var(--kgst-line); border-radius: var(--kgst-radius); padding: 0.5rem; }
+.kgst-equipment-progress > summary { cursor: pointer; font-weight: 600; }
+.kgst-equipment-bond { border-top: 1px solid var(--kgst-line-soft); margin-top: 0.4rem; padding-top: 0.4rem; }
+.kgst-equipment-bond p { margin: 0.3rem 0; }
+.kgst-equipment-bond pre { max-height: 10rem; overflow: auto; white-space: pre-wrap; }
+.kgst-equipment-items { display: flex; flex-direction: column; gap: 0.4rem; }
+.kgst-equipment-items h3 { margin: 0.4rem 0 0; }
+.kgst-item-picker-body { display: flex; flex-direction: column; gap: 0.65rem; }
+.kgst-item-drop { min-height: 8rem; display: flex; flex-direction: column; justify-content: center; gap: 0.5rem; }
+.kgst-item-drop:focus-visible { outline: 2px solid var(--kgst-accent); outline-offset: 2px; }
+.kgst-item-drop .kgst-hint { margin: 0; }
+.kgst-picked-item { display: flex; align-items: center; gap: 0.6rem; text-align: left; min-width: 0; }
+.kgst-picked-item > img { width: 3rem; height: 3rem; object-fit: contain; border: none; flex: none; }
+.kgst-picked-item strong { overflow-wrap: anywhere; }
+.kgst-picked-item .kgst-tree-info span { white-space: normal; }
+.kgst-picked-item > button { flex: none; }
+.kgst-picker-choice { display: flex; flex-direction: column; gap: 0.3rem; }
+.kgst-instance-name-hint { margin: 0; }
+.kgst-equipment-grants { list-style: none; margin: 0.3rem 0 0.6rem; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.kgst-equipment-grant { padding: 0.5rem; border: 1px solid var(--kgst-line); border-radius: var(--kgst-radius); min-width: 0; }
+.kgst-grant-description { margin-top: 0.4rem; overflow-wrap: anywhere; }
+.kgst-grant-description > :first-child { margin-top: 0; }
+.kgst-grant-description > :last-child { margin-bottom: 0; }
+@container (max-width: 520px) {
+  .kgst-equipment .kgst-head-actions { margin-left: 0; }
+  .kgst-equipment-items .kgst-tree-row { flex-wrap: wrap; }
+}
+
 /* ---------- Chat card ---------- */
 
 .kgst-card header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.3rem; }

@@ -1,0 +1,214 @@
+{
+  "kgSkillTree": 1,
+  "tree": {
+    "id": "dawnbrandexample",
+    "name": "Dawnbrand: Equipment Example",
+    "kind": "equipment",
+    "baseItem": {
+      "uuid": "",
+      "name": "",
+      "img": "",
+      "type": ""
+    },
+    "activation": {
+      "equipped": true,
+      "attuned": true
+    },
+    "description": "Example equipment tree. Attach to a magical attunable weapon and award equipment points.",
+    "img": "icons/svg/upgrade.svg",
+    "background": {
+      "src": "",
+      "width": 1600,
+      "height": 900,
+      "color": "#1d1f2b"
+    },
+    "nodeSize": 6,
+    "currency": {
+      "name": "Skill Points",
+      "abbr": "SP"
+    },
+    "rules": [],
+    "refund": "leaf",
+    "confirmPurchase": true,
+    "chatCards": true,
+    "nodes": {
+      "familiar": {
+        "id": "familiar",
+        "x": 0.28,
+        "y": 0.3,
+        "name": "Familiar Grip",
+        "img": "",
+        "description": "",
+        "cost": 1,
+        "shape": "circle",
+        "size": 1,
+        "color": "#5e9eba",
+        "grants": [],
+        "ownership": "personal",
+        "enhancements": [
+          {
+            "id": "attack",
+            "target": "weapon",
+            "kind": "attack",
+            "key": "",
+            "value": "1"
+          }
+        ],
+        "requireMode": "all",
+        "minLevel": 0,
+        "classReq": {
+          "identifier": "",
+          "level": 0
+        },
+        "minSpent": 0,
+        "useReq": {
+          "nodes": [],
+          "count": 0
+        },
+        "hidden": false,
+        "label": true
+      },
+      "guard": {
+        "id": "guard",
+        "x": 0.28,
+        "y": 0.7,
+        "name": "Guardian Bond",
+        "img": "",
+        "description": "",
+        "cost": 2,
+        "shape": "circle",
+        "size": 1,
+        "color": "#5e9eba",
+        "grants": [],
+        "ownership": "personal",
+        "enhancements": [
+          {
+            "id": "ac",
+            "target": "actor",
+            "kind": "ac",
+            "key": "",
+            "value": "1"
+          },
+          {
+            "id": "save",
+            "target": "actor",
+            "kind": "save",
+            "key": "wis",
+            "value": "1"
+          },
+          {
+            "id": "check",
+            "target": "actor",
+            "kind": "check",
+            "key": "prc",
+            "value": "1"
+          }
+        ],
+        "requireMode": "all",
+        "minLevel": 0,
+        "classReq": {
+          "identifier": "",
+          "level": 0
+        },
+        "minSpent": 0,
+        "useReq": {
+          "nodes": [],
+          "count": 0
+        },
+        "hidden": false,
+        "label": true
+      },
+      "edge": {
+        "id": "edge",
+        "x": 0.72,
+        "y": 0.3,
+        "name": "Tempered Edge",
+        "img": "",
+        "description": "",
+        "cost": 2,
+        "shape": "circle",
+        "size": 1,
+        "color": "#c49b4b",
+        "grants": [],
+        "ownership": "permanent",
+        "enhancements": [
+          {
+            "id": "damage",
+            "target": "weapon",
+            "kind": "damage",
+            "key": "",
+            "value": "2"
+          }
+        ],
+        "requireMode": "all",
+        "minLevel": 0,
+        "classReq": {
+          "identifier": "",
+          "level": 0
+        },
+        "minSpent": 0,
+        "useReq": {
+          "nodes": [],
+          "count": 0
+        },
+        "hidden": false,
+        "label": true
+      },
+      "ember": {
+        "id": "ember",
+        "x": 0.72,
+        "y": 0.7,
+        "name": "Ember Core",
+        "img": "",
+        "description": "",
+        "cost": 2,
+        "shape": "circle",
+        "size": 1,
+        "color": "#c49b4b",
+        "grants": [],
+        "ownership": "permanent",
+        "enhancements": [
+          {
+            "id": "fire",
+            "target": "weapon",
+            "kind": "damage",
+            "key": "",
+            "value": "1d4",
+            "damageType": "fire"
+          }
+        ],
+        "requireMode": "all",
+        "minLevel": 0,
+        "classReq": {
+          "identifier": "",
+          "level": 0
+        },
+        "minSpent": 0,
+        "useReq": {
+          "nodes": [],
+          "count": 0
+        },
+        "hidden": false,
+        "label": true
+      }
+    },
+    "links": {
+      "bond": {
+        "id": "bond",
+        "from": "familiar",
+        "to": "guard",
+        "kind": "require"
+      },
+      "forging": {
+        "id": "forging",
+        "from": "edge",
+        "to": "ember",
+        "kind": "require"
+      }
+    },
+    "grid": {
+      "snap": false,
+      "size": 40
+    }
+  }
+}

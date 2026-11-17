@@ -12,6 +12,8 @@ import {
 import { countUse, giveMilestone } from "./events.mjs";
 import { TreeView, legendElement, nodeIcon, reqsHTML } from "./renderer.mjs";
 import { confirm, lockFor, promptAdjust, promptGmGrant, unlockFor } from "./apps/dialogs.mjs";
+import { equipmentItems } from "./equipment.mjs";
+import { EquipmentPanel, isEquipmentTree } from "./apps/equipment.mjs";
 
 /* Below this the panel stops shrinking and the sheet scrolls instead: room for the header, a tree and the details. */
 const MIN_PANEL = 380;
@@ -38,8 +40,9 @@ function stateFor(actor) {
 /** Can this user see the Skill Tree tab on this character? */
 export function canSeeTab(actor) {
   if ( !isCharacter(actor) ) return false;
+  if ( equipmentItems(actor).length ) return true;
   if ( game.user.isGM ) return allTrees().length > 0;
-  return unlockedTrees(actor).length > 0;
+  return unlockedTrees(actor).some(t => !isEquipmentTree(t));
 }
 
 export class SkillTreePanel {
@@ -47,6 +50,8 @@ export class SkillTreePanel {
     this.root = root;
     this.actor = actor;
     this.big = big;
+    root._kgstPanel?.equipment?.destroy();
+    root._kgstPanel?.view?.destroy();
     root.classList.add("kgst-root");
     root.classList.toggle("kgst-big", big);
     // Tidy can keep the same root element across re-renders, so the listener always goes to the latest panel.
@@ -104,15 +109,27 @@ export class SkillTreePanel {
   render() {
     const actor = this.actor;
     const isGM = game.user.isGM;
-    const trees = unlockedTrees(actor);
+    const trees = unlockedTrees(actor).filter(t => !isEquipmentTree(t));
     const s = this.state;
+    this.equipment?.destroy();
+    this.equipment = null;
+    if ( s.category === "equipment" ) {
+      this.view?.destroy();
+      this.view = null;
+      this.ctx = null;
+      const host = h("div.kgst-equipment-host");
+      this.root.replaceChildren(h("div.kgst-panel", this.#categories(), host));
+      this.#fitToSheet();
+      this.equipment = new EquipmentPanel(host, { actor });
+      return this.equipment.render();
+    }
     if ( !trees.some(t => t.id === s.treeId) ) s.treeId = trees[0]?.id ?? null;
     const tree = trees.find(t => t.id === s.treeId) ?? null;
     this.view?.destroy();
     this.view = null;
 
     if ( !tree ) {
-      this.root.replaceChildren(this.#emptyState());
+      this.root.replaceChildren(h("div.kgst-panel", this.#categories(), this.#emptyState()));
       return;
     }
     const tstate = treeState(actor, tree.id);
@@ -163,7 +180,7 @@ export class SkillTreePanel {
     });
     this.detail = h("div.kgst-detail");
 
-    this.root.replaceChildren(h("div.kgst-panel", header, breakdown, frame, legendElement(), this.detail));
+    this.root.replaceChildren(h("div.kgst-panel", this.#categories(), header, breakdown, frame, legendElement(), this.detail));
     this.#fitToSheet();
     if ( s.cams[tree.id] ) this.view.restoreCamera(s.cams[tree.id]);
     else this.view.layout();
@@ -177,9 +194,16 @@ export class SkillTreePanel {
     this.#renderDetail();
   }
 
+  #categories() {
+    return h("nav.kgst-categories", { "aria-label": "Skill tree category" }, ["actor", "equipment"].map(category =>
+      h(`button.kgst-btn${(this.state.category ?? "actor") === category ? ".primary" : ""}`, {
+        type: "button", dataset: { kgst: "category", category }, "aria-pressed": String((this.state.category ?? "actor") === category)
+      }, category === "actor" ? "Actor" : "Equipment")));
+  }
+
   #emptyState() {
     const isGM = game.user.isGM;
-    const all = allTrees();
+    const all = allTrees().filter(t => !isEquipmentTree(t));
     if ( !isGM ) return h("p.kgst-empty", { text: "No skill trees are unlocked for this character." });
     if ( !all.length ) {
       return h("div.kgst-empty-box",
@@ -305,6 +329,9 @@ export class SkillTreePanel {
     const s = this.state;
     const tree = this.ctx?.tree ? getTree(this.ctx.tree.id) : null;
     switch ( el.dataset.kgst ) {
+      case "category":
+        s.category = el.dataset.category;
+        return this.render();
       case "tree":
         s.treeId = el.dataset.treeId;
         s.nodeId = null;
@@ -406,7 +433,7 @@ export class SkillTreePanel {
   async #unlockOther() {
     const actor = this.actor;
     const have = new Set(unlockedTrees(actor).map(t => t.id));
-    const others = allTrees().filter(t => !have.has(t.id));
+    const others = allTrees().filter(t => !isEquipmentTree(t) && !have.has(t.id));
     if ( !others.length ) return ui.notifications.info("Every skill tree is already unlocked for this character.");
     const { DialogV2 } = foundry.applications.api;
     const id = await DialogV2.wait({

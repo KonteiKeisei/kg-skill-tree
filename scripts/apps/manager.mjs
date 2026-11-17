@@ -4,6 +4,7 @@ import { allTrees, cloneTree, defaultTree, deleteTree, getTree, normalizeTree, s
 import { pointsSummary, retroactivePoints, treeState } from "../progress.mjs";
 import { giveMilestone } from "../events.mjs";
 import { confirm, lockFor, unlockFor } from "./dialogs.mjs";
+import { attachEquipmentDialog, isEquipmentTree, listedEquipmentItems, openEquipmentItem, recoverEquipmentDialog } from "./equipment.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -27,8 +28,23 @@ export class TreeManager extends DomApp {
     if ( app?.rendered ) app.render();
   }
 
+  constructor(options = {}) {
+    super(options);
+    this.equipmentHook = Hooks.on("kg-skill-tree.equipmentChanged", () => {
+      clearTimeout(this.equipmentRefresh);
+      this.equipmentRefresh = setTimeout(() => { if ( this.rendered ) this.render(); }, 75);
+    });
+  }
+
+  async close(options) {
+    clearTimeout(this.equipmentRefresh);
+    Hooks.off("kg-skill-tree.equipmentChanged", this.equipmentHook);
+    return super.close(options);
+  }
+
   async build() {
-    const trees = allTrees();
+    const equipment = this.category === "equipment";
+    const trees = allTrees().filter(t => isEquipmentTree(t) === equipment);
     const characters = game.actors.filter(isCharacter);
     const list = trees.length ? h("ul.kgst-tree-list", trees.map(t => {
       const unlocked = characters.filter(a => treeState(a, t.id)?.unlocked);
@@ -37,26 +53,40 @@ export class TreeManager extends DomApp {
         h("div.kgst-tree-info",
           h("strong", { text: t.name }),
           h("span.kgst-muted", { text: `${plural(Object.keys(t.nodes).length, "node")}, ${plural(t.rules.length, "earning rule")}` }),
-          h("span.kgst-muted", { text: unlocked.length ? `Unlocked for ${unlocked.map(a => a.name).join(", ")}` : "Not unlocked for anyone yet" })),
+          h("span.kgst-muted", { text: equipment ? "Attach to world or actor items below" : unlocked.length ? `Unlocked for ${unlocked.map(a => a.name).join(", ")}` : "Not unlocked for anyone yet" })),
         h("div.kgst-tree-actions",
           btn("design", "fa-solid fa-pen-ruler", "Design"),
-          btn("characters", "fa-solid fa-users", "Characters"),
+          equipment ? null : btn("characters", "fa-solid fa-users", "Characters"),
           icon("duplicate", "fa-solid fa-copy", "Duplicate"),
           icon("export", "fa-solid fa-file-export", "Export to a file"),
           icon("delete", "fa-solid fa-trash", "Delete")));
     })) : h("p.kgst-empty", { text: "No skill trees yet. Create one to get started." });
 
     const root = h("div.kgst-manager-body",
+      h("nav.kgst-categories", { "aria-label": "Tree category" },
+        btn("category-actor", "fa-solid fa-user", "Actor", equipment ? "" : "primary"),
+        btn("category-equipment", "fa-solid fa-toolbox", "Equipment", equipment ? "primary" : "")),
       h("div.kgst-toolbar",
         btn("create", "fa-solid fa-plus", "New Tree", "primary"),
         btn("import", "fa-solid fa-file-import", "Import"),
         h("span.kgst-spacer"),
-        btn("milestone", "fa-solid fa-flag-checkered", "Give Milestone")),
+        equipment ? [btn("attach-equipment", "fa-solid fa-link", "Attach to Item"),btn("recover-equipment", "fa-solid fa-rotate-left", "Recover Item")] : btn("milestone", "fa-solid fa-flag-checkered", "Give Milestone")),
       list,
-      h("p.kgst-hint", { text: "Design a tree, then unlock it for characters with Characters. Players see unlocked trees on a "
+      equipment ? this.#equipmentList() : h("p.kgst-hint", { text: "Design a tree, then unlock it for characters with Characters. Players see unlocked trees on a "
         + "Skill Tree tab on their character sheet." }));
-    root.addEventListener("click", ev => this.#onClick(ev));
+    root.addEventListener("click", ev => this.#onClick(ev).catch(err => ui.notifications.error(err.message)));
     return root;
+  }
+
+  #equipmentList() {
+    const items = listedEquipmentItems();
+    return h("section.kgst-equipment-items", h("h3", { text: "Attached equipment" }),
+      items.length ? h("ul.kgst-tree-list", items.map(item => h("li.kgst-tree-row", { dataset: { itemUuid: item.uuid } },
+        h("img", { src: item.img, alt: "" }),
+        h("div.kgst-tree-info", h("strong", { text: item.name }),
+          h("span.kgst-muted", { text: `${item.actor?.name ?? "World item"}: ${getTree(item.flags["kg-skill-tree"].equipment.treeId)?.name ?? "Missing tree"}` })),
+        btn("open-equipment", "fa-solid fa-diagram-project", "Open"))))
+        : h("p.kgst-empty", { text: "No items have equipment trees attached." }));
   }
 
   async #onClick(ev) {
@@ -65,10 +95,38 @@ export class TreeManager extends DomApp {
     ev.preventDefault();
     const treeId = el.closest("[data-tree-id]")?.dataset.treeId;
     const tree = treeId ? getTree(treeId) : null;
+    if ( el.dataset.act.startsWith("category-") ) {
+      this.category = el.dataset.act === "category-equipment" ? "equipment" : "actor";
+      return this.render();
+    }
+    if ( el.dataset.act === "open-equipment" ) {
+      const uuid = el.closest("[data-item-uuid]")?.dataset.itemUuid;
+      return openEquipmentItem(listedEquipmentItems().find(item => item.uuid === uuid));
+    }
+    if ( el.dataset.act === "attach-equipment" ) {
+      const item = await attachEquipmentDialog();
+      await this.render();
+      if ( item ) return openEquipmentItem(item);
+      return;
+    }
     const { TreeDesigner } = await import("./designer.mjs");
+    if(el.dataset.act==='recover-equipment'){await recoverEquipmentDialog();return this.render();}
     switch ( el.dataset.act ) {
       case "create": {
-        const t = await saveTree(defaultTree());
+        const draft = defaultTree();
+        draft.kind = this.category ?? "actor";
+        if ( draft.kind === "equipment" ) {
+          const type = await DialogV2.wait({
+            window: { title: "New Equipment Tree" }, classes: ["kgst-dialog"],
+            content: '<p>Choose the equipment type for this tree. This type is fixed after creation.</p><label>Equipment type<select name="equipmentType"><option value="weapon">Weapon</option><option value="armor">Armor</option><option value="equipment">Other equipment</option></select></label>',
+            buttons: [{ action: "create", label: "Create", default: true, callback: (e, b) => b.form.elements.equipmentType.value },
+              { action: "cancel", label: "Cancel" }], rejectClose: false
+          });
+          if ( !["weapon", "armor", "equipment"].includes(type) ) return;
+          draft.equipmentType = type;
+          draft.rules = [];
+        }
+        const t = await saveTree(draft);
         return TreeDesigner.open(t.id);
       }
       case "import": return this.#import();

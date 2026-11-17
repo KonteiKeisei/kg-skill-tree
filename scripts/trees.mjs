@@ -29,16 +29,18 @@ export const REFUND_POLICIES = {
   any: "Players can refund freely (nodes that depend on it are refunded too)."
 };
 
-export function defaultTree(name = "New Skill Tree") {
+export function defaultTree(name = "New Skill Tree", kind = "actor", equipmentType = "weapon") {
   return normalizeTree({
     id: randomId(),
     name,
+    kind,
+    equipmentType,
     description: "",
     img: "icons/svg/upgrade.svg",
     background: { src: "", width: 1600, height: 900, color: "#1d1f2b" },
     nodeSize: 6,
     currency: { name: "Skill Points", abbr: "SP" },
-    rules: [{ id: randomId(), event: "level", filter: "", amount: 1, mode: "every", every: 1, start: 2, at: "", max: 0 }],
+    rules: kind === "equipment" ? [] : [{ id: randomId(), event: "level", filter: "", amount: 1, mode: "every", every: 1, start: 2, at: "", max: 0 }],
     refund: "leaf",
     confirmPurchase: true,
     chatCards: true,
@@ -65,6 +67,8 @@ export function normalizeNode(n = {}) {
     size: clamp(num(n.size, 1), 0.4, 3),
     color: String(n.color ?? ""),
     grants: Array.isArray(n.grants) ? n.grants.map(normalizeGrant).filter(Boolean) : [],
+    ownership: n.ownership === "permanent" ? "permanent" : "personal",
+    enhancements: Array.isArray(n.enhancements) ? n.enhancements.map(normalizeEnhancement).filter(Boolean) : [],
     requireMode: n.requireMode === "any" ? "any" : "all",
     minLevel: Math.max(0, int(n.minLevel, 0)),
     classReq: { identifier: String(n.classReq?.identifier ?? ""), level: Math.max(0, int(n.classReq?.level, 0)) },
@@ -78,6 +82,28 @@ export function normalizeNode(n = {}) {
   };
 }
 
+/**
+ * Declarative bonuses. Blank group derives a family from target, kind and sorted keys (legacy key fallback).
+ * Runtime processes purchase order: add increases the family total, replace sets it, including lower values.
+ * keys: ["all"] selects every save/check; key remains available for legacy consumers.
+ * Formula strings are kept intact for the runtime's Roll evaluation.
+ */
+export function normalizeEnhancement(e) {
+  if ( !e || !["attack", "damage", "ac", "save", "check"].includes(e.kind) ) return null;
+  return {
+    id: e.id || randomId(),
+    target: e.target === "actor" ? "actor" : "weapon",
+    kind: e.kind,
+    key: String(e.key ?? (Array.isArray(e.keys) ? e.keys[0] : "") ?? ""),
+    keys: [...new Set((Array.isArray(e.keys) ? e.keys : (e.key ? [e.key] : [])).map(String).filter(Boolean))],
+    stacking: e.stacking === "replace" ? "replace" : "add",
+    group: String(e.group ?? "").trim(),
+    value: String(e.value ?? "0"),
+    ...(e.damageType ? { damageType: String(e.damageType) } : {})
+  };
+}
+
+/** spellUses is declarative: grant runtime applies uses, innate method and itemUses activity consumption. */
 export function normalizeGrant(g) {
   if ( !g?.uuid ) return null;
   const patch = (g.patch && (typeof g.patch === "object") && !Array.isArray(g.patch)) ? foundry.utils.deepClone(g.patch) : {};
@@ -88,6 +114,11 @@ export function normalizeGrant(g) {
     img: String(g.img ?? ""),
     type: String(g.type ?? ""),
     count: String(g.count ?? "1"),
+    spellUses: {
+      enabled: !!g.spellUses?.enabled,
+      max: String(g.spellUses?.max ?? "1"),
+      recovery: ["lr", "sr", "day"].includes(g.spellUses?.recovery) ? g.spellUses.recovery : "lr"
+    },
     patch
   };
 }
@@ -135,6 +166,7 @@ export function normalizeRule(r = {}) {
   return {
     id: r.id || randomId(),
     event: String(r.event ?? "level"),
+    weaponOnly: !!r.weaponOnly,
     filter: String(r.filter ?? ""),
     amount: int(r.amount, 1),
     mode: r.mode === "at" ? "at" : "every",
@@ -165,9 +197,20 @@ export function normalizeTree(t = {}) {
     links[link.id] = link;
   }
   const bg = t.background ?? {};
+  const equipmentType = ["weapon", "armor", "equipment"].includes(t.equipmentType) ? t.equipmentType
+    : (["weapon", "equipment"].includes(t.baseItem?.type) ? t.baseItem.type : "weapon");
   return {
     id: t.id || randomId(),
     name: String(t.name ?? "Skill Tree"),
+    kind: t.kind === "equipment" ? "equipment" : "actor",
+    equipmentType,
+    baseItem: {
+      uuid: String(t.baseItem?.uuid ?? ""),
+      name: String(t.baseItem?.name ?? ""),
+      img: String(t.baseItem?.img ?? ""),
+      type: String(t.baseItem?.type ?? "")
+    },
+    activation: { equipped: t.activation?.equipped !== false, attuned: t.activation?.attuned !== false },
     description: String(t.description ?? ""),
     img: String(t.img ?? "icons/svg/upgrade.svg"),
     background: {
@@ -181,7 +224,9 @@ export function normalizeTree(t = {}) {
       name: String(t.currency?.name || "Skill Points"),
       abbr: String(t.currency?.abbr || "SP")
     },
-    rules: Array.isArray(t.rules) ? t.rules.map(normalizeRule) : [],
+    rules: Array.isArray(t.rules) ? t.rules.map(r => ({ ...normalizeRule(r),
+      weaponOnly: t.kind === "equipment" && equipmentType === "weapon" && !!r.weaponOnly
+    })) : [],
     refund: t.refund in REFUND_POLICIES ? t.refund : "leaf",
     confirmPurchase: t.confirmPurchase !== false,
     chatCards: t.chatCards !== false,
@@ -209,6 +254,17 @@ export async function saveTree(tree) {
   if ( !game.user.isGM ) throw new Error("Only a GM can change skill trees.");
   const all = foundry.utils.deepClone(game.settings.get(MODULE_ID, "trees") ?? {});
   const clean = normalizeTree(tree);
+  const previous = all[clean.id];
+  if (previous) {
+    const ledgers=[...(game.journal??[])].filter(j=>j.getFlag('kg-skill-tree','equipmentLedger')?.treeId===clean.id);
+    const actorUsed=[...(game.actors??[])].some(a=>a.getFlag('kg-skill-tree','trees')?.[clean.id]);
+    if((previous.kind??'actor')!==clean.kind && (actorUsed||ledgers.length))throw new Error('This tree already has progress. Duplicate it before changing its kind.');
+    if(clean.kind==='equipment'&&normalizeTree(previous).equipmentType!==clean.equipmentType)throw new Error('Equipment type is fixed at creation. Duplicate the design to create a different equipment type.');
+    for(const ledger of ledgers){
+      const records=[...(ledger.getFlag('kg-skill-tree','equipmentLedger').permanent??[]),...[...ledger.pages].flatMap(p=>p.getFlag('kg-skill-tree','equipmentBond')?.owned??[])];
+      if(records.some(o=>!clean.nodes[o.id]))throw new Error('An equipment bond owns a node removed by this design. Refund it before removing the node.');
+    }
+  }
   all[clean.id] = clean;
   await game.settings.set(MODULE_ID, "trees", all);
   return clean;

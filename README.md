@@ -13,6 +13,61 @@ dnd5e 5.3.3 too.
 
 ## Designing a tree
 
+### Equipment trees
+
+The manager and character Skill Tree tab have Actor and Equipment categories. Existing designs default to Actor.
+In the manager, choose Equipment, New Tree, select Weapon, Armor or Other equipment, then Design. The type is fixed
+at creation; nonweapon trees do not offer weapon bonuses or weapon-only event rules. Under Tree, drop a base item and choose whether
+activation requires equipped and attuned. Equipment trees start with no earning rules; give points from the equipment
+panel or configure rules in Points. Rule baselines start when a character first receives the physical item.
+
+Under Node, choose personal ownership or permanent ownership and add enhancements with the GUI. Weapon attack and
+damage bonuses affect only this item's attack activities. Wielder bonuses support AC, skill/ability checks and ability saves,
+with multiple selections or All. Cumulative bonuses stack; an upgrade replaces the earlier bonus to the same rolls.
+For example, cumulative +1 and +2 give +3; upgrading +1 to +2 gives +2. Optional enchantment names keep separate
+enchantments independent. Native item bonuses remain separate.
+Permanent unlocks follow the physical item; personal unlocks return only when the same character receives that same item.
+Each character/item bond has its own point account. A permanent purchase is charged to the purchasing bond only.
+GM: grant is available on unowned equipment nodes. It bypasses requirements, defaults to free, and can instead charge the equipment pool. The gained level and note are recorded in the equipment ledger. Free grants refund no points.
+
+Use Attach to Item in the manager and drag an item from the sidebar, inventory or compendium into its drop area.
+Compendium attachment creates a physical world copy on confirmation. Or use Skill Tree in the item sheet header. An unattached item's window also offers
+Create Tree. A tree that requires attunement adds the item's Magical (`mgc`) property and sets Attunement to Required.
+This also applies to existing attachments and later changes to the tree. The wielder must equip and attune normally.
+Turning those requirements off in the tree allows non-attuned equipment.
+Turning off the attunement requirement does not remove existing magical properties or attunement settings.
+Enhancement roll terms name only the equipment. Sephral's Roll Breakdown 1.0.19 keeps these source labels through its adapter API; no dependency is required. Older versions without that API show an update notice to the GM.
+The attachment prompt names the physical instance. Items sidebar and inventory badges show its attached tree; its tree window shows its location and Open Item.
+
+Use the equipment panel's Transfer action to move the physical item between world actors. It keeps identity and
+permanent unlocks and resets equipped/attuned. Ordinary duplication creates a new item without the live tree identity.
+Sheet-to-sheet drops move attached items. Create/delete handoffs, including Item Piles deposit, pickup and Give, preserve identity when the original is removed.
+Item Piles synthetic token inventories are supported, and powers are inactive while stored in a pile. Its similarity settings include the physical identity to keep distinct tree items separate.
+An active GM must observe the handoff. If an interrupted move leaves an orphaned record, use Equipment > Recover Item. Recovery is refused while the original exists.
+
+Equipment ledgers are private Journals in KG Equipment Records, with a page per actor bond. Do not delete these records.
+World backups include them. Detach retains the record, but a new attachment starts a new identity. Only the elected
+active GM writes these ledgers. Player requests use authenticated Foundry document events; they appear as private chat
+records between requester and GM. An active GM is required for initial reads and mutations; an already loaded client
+retains its last confirmed bonuses if the GM disconnects. A fresh player login with no GM cannot load the private ledger.
+
+Spell grants can override max uses and recovery from the grant editor. An override casts without spending a spell slot.
+For Feather Fall once per long rest, enable Override spell uses, set 1 and Long rest. This applies to Actor tree grants too.
+Equipment spells and simple features are generated on the holder only while active and labeled with the source item's name.
+Spells appear in the spellbook, as equipment Cast a Spell activities, and with a Cast button in unlocked node details. All use the same granted spell and charge counter.
+Changes to an already unlocked node's grants update its usable rewards, including older purchases with missing spell data, while retaining spent charges.
+Their remaining uses are saved in the ledger. Personal grant resources belong to that bond; permanent grant resources follow
+the physical item, so transferring it does not refill charges. Rests recover carried inactive grants too.
+Equipment summon grants and feature grants with advancement choices remain excluded. Purchasing progress on synthetic token actors remains excluded.
+Actor tree purchases, refunds, grants and stored points keep their existing behavior.
+
+For weapon trees, attack, critical-hit and damage earning rules offer Only with this weapon. Checked counts only rolls
+from that physical item; unchecked counts the wielder's relevant events while the tree is active.
+
+Node reward drops now offer a source chooser for sidebar items: use the compendium original, save the edited item,
+or retain a world reference. Actor-owned rewards must be saved or linked to their original. Strict sources is optional.
+Saved copies go to a selected unlocked compendium, or a new world Skill Tree Sources pack. Originals are preserved.
+
 Open **Skill Trees** from the button at the top of the Actors sidebar (or Game Settings, Configure Settings, KG Skill
 Trees). Create a tree and press **Design**.
 

@@ -16,12 +16,13 @@ import { DomApp } from "./base.mjs";
 import { FilePickerImpl, MODULE_ID, clamp, dragData, esc, h, knownClasses, num, plural, randomId } from "../util.mjs";
 import {
   ASPECTS, REFUND_POLICIES, SHAPES, defaultNode, exclusives, getTree, grantName, imageSize, importOver,
-  normalizeGrant, normalizeRule, normalizeTree, prerequisites, saveTree, wouldCycle
+  normalizeEnhancement, normalizeGrant, normalizeRule, normalizeTree, prerequisites, saveTree, wouldCycle
 } from "../trees.mjs";
 import { grantItemData } from "../progress.mjs";
 import { EVENTS, describeRule, filterChoices } from "../events.mjs";
 import { TreeView } from "../renderer.mjs";
 import { SUMMON_HINT, summonGrant, summoningEnabled } from "../summon.mjs";
+import { resolveSource } from "../sources.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 const HISTORY_LIMIT = 150;
@@ -745,7 +746,7 @@ export class TreeDesigner extends DomApp {
     this._openPatch ??= new Set();
     const grantList = h("ul.kgst-grant-edit", node.grants.flatMap((g, i) => {
       const key = `${id}:${i}`;
-      const patched = !foundry.utils.isEmpty(g.patch);
+      const patched = !foundry.utils.isEmpty(g.patch) || g.spellUses?.enabled;
       const row = h("li",
         h("img", { src: g.img || "icons/svg/item-bag.svg", alt: "" }),
         h("span.kgst-grant-name", { text: g.kind === "summon" ? `Summon: ${grantName(g)}` : grantName(g), "data-tooltip": esc(g.uuid) }),
@@ -861,7 +862,9 @@ export class TreeDesigner extends DomApp {
         row("Cost", cost, h("span.kgst-muted", { text: t.currency.abbr })),
         row("Icon", imgInput, pickImg),
         h("label.kgst-label", { text: "Description" }), desc),
+      t.kind === "equipment" ? this.#equipmentNodePanel(node) : null,
       section("Grants",
+        t.kind === "equipment" ? h("p.kgst-hint", { text: "Item and spell grants are applied when this node is purchased." }) : null,
         node.grants.length ? grantList : h("p.kgst-hint", { text: "Nothing yet. A node can also grant nothing and just be a step on the path." }),
         drop,
         node.grants.some(g => g.kind === "summon") ? h("p.kgst-hint", { text: SUMMON_HINT }) : null),
@@ -888,6 +891,86 @@ export class TreeDesigner extends DomApp {
       h("div.kgst-form-actions",
         h("button.kgst-btn", { type: "button", onclick: () => this.duplicateSelection() }, h("i.fa-solid.fa-copy"), " Duplicate"),
         h("button.kgst-btn.kgst-danger", { type: "button", onclick: () => this.deleteSelection() }, h("i.fa-solid.fa-trash"), " Delete")));
+  }
+
+  #equipmentNodePanel(node) {
+    const update = fn => {
+      const current = this.tree.nodes[node.id];
+      if ( !current ) return;
+      fn(current);
+      this.commit({ side: true });
+    };
+    const ownership = select("ownership", [["personal", "Personal (this character)"], ["permanent", "Permanent (stays with item)"]], node.ownership);
+    ownership.addEventListener("change", () => update(n => n.ownership = ownership.value));
+    const isWeapon = this.tree.equipmentType === "weapon";
+    const cards = node.enhancements.map(e => {
+      const change = fn => update(n => {
+        const index = n.enhancements.findIndex(x => x.id === e.id);
+        if ( index < 0 ) return;
+        fn(n.enhancements[index]);
+        n.enhancements[index] = normalizeEnhancement(n.enhancements[index]);
+      });
+      const target = select("enhancementTarget", [...(isWeapon ? [["weapon", "This weapon"]] : []), ["actor", "Wielder"]], e.target);
+      if ( !isWeapon && e.target === "weapon" ) target.selectedIndex = -1;
+      target.addEventListener("change", () => change(x => {
+        x.target = target.value;
+        if ( x.target === "weapon" && !["attack", "damage"].includes(x.kind) ) x.kind = "attack";
+        if ( x.target === "actor" && !["ac", "save", "check"].includes(x.kind) ) x.kind = "ac";
+        x.key = "";
+        x.keys = [];
+        delete x.damageType;
+      }));
+      const kinds = [["attack", "Attack bonus"], ["damage", "Damage bonus"], ["ac", "Armor Class"], ["save", "Saving throw"], ["check", "Skill / ability check"]];
+      const kind = select("enhancementKind", kinds.filter(([key]) => (e.target === "actor" || !isWeapon ? ["ac", "save", "check"] : ["attack", "damage"]).includes(key)), e.kind);
+      if ( !isWeapon && ["attack", "damage"].includes(e.kind) ) kind.selectedIndex = -1;
+      kind.addEventListener("change", () => change(x => { x.kind = kind.value; x.key = ""; x.keys = []; delete x.damageType; }));
+      const abilities = configChoices(CONFIG.DND5E?.abilities);
+      const skills = configChoices(CONFIG.DND5E?.skills);
+      let key;
+      if ( ["save", "check"].includes(e.kind) ) {
+        const choices = e.kind === "check" ? [...skills, ...abilities] : abilities;
+        const selected = new Set(e.keys?.length ? e.keys : (e.key ? [e.key] : []));
+        const all = h("input", { type: "checkbox", checked: selected.has("all") });
+        all.addEventListener("change", () => change(x => { x.keys = all.checked ? ["all"] : []; x.key = x.keys[0] ?? ""; }));
+        key = h("div.kgst-key-choices", h("label.kgst-check", all, h("span", { text: "All" })), choices.map(([k, label]) => {
+          const box = h("input", { type: "checkbox", checked: selected.has("all") || selected.has(k), disabled: selected.has("all") });
+          box.addEventListener("change", () => change(x => {
+            const keys = new Set(x.keys?.length ? x.keys : (x.key ? [x.key] : []));
+            if ( box.checked ) keys.add(k); else keys.delete(k);
+            x.keys = [...keys]; x.key = x.keys[0] ?? "";
+          }));
+          return h("label.kgst-check", box, h("span", { text: label }));
+        }));
+      }
+      const stacking = select("enhancementStacking", [["add", "Cumulative bonus"], ["replace", "Upgrade bonus"]], e.stacking);
+      stacking.addEventListener("change", () => change(x => x.stacking = stacking.value));
+      const group = input("text", "enhancementGroup", e.group, { placeholder: "Optional, e.g. Moonlight Blessing" });
+      group.addEventListener("change", () => change(x => x.group = group.value.trim()));
+      const value = input("text", "enhancementValue", e.value, { placeholder: "2 or @prof", "aria-label": "Bonus number or Roll formula" });
+      value.addEventListener("change", () => change(x => x.value = value.value.trim() || "0"));
+      let damageType;
+      if ( e.kind === "damage" ) {
+        const choices = [["", "Weapon's damage type"], ...configChoices(CONFIG.DND5E?.damageTypes)];
+        if ( e.damageType && !choices.some(([k]) => k === e.damageType) ) choices.push([e.damageType, e.damageType]);
+        damageType = select("enhancementDamageType", choices, e.damageType);
+        damageType.addEventListener("change", () => change(x => {
+          if ( damageType.value ) x.damageType = damageType.value;
+          else delete x.damageType;
+        }));
+      }
+      return h("div.kgst-rule",
+        h("div.kgst-rule-head", h("strong", { text: "Enhancement" }),
+          iconButton("fa-solid fa-trash", "Remove enhancement", () => update(n => n.enhancements = n.enhancements.filter(x => x.id !== e.id)))),
+        !isWeapon && (e.target === "weapon" || ["attack", "damage"].includes(e.kind)) ? h("p.kgst-hint", { text: "Imported weapon bonus: remove it or change it to a wearer bonus before purchase." }) : null,
+        row("Applies to", target), row("Bonus", kind), key ? row(e.kind === "save" ? "Abilities" : "Skills / abilities", key) : null,
+        row("Bonus stacking", stacking), row("Enchantment (optional)", group),
+        h("p.kgst-hint", { text: "Cumulative: +1 and +2 give a +3 bonus. Upgrade: the new +2 bonus replaces the earlier +1. An upgrade replaces the earlier bonus even if smaller. Give separate enchantments different names; leave blank to combine bonuses to the same rolls." }),
+        row("Value", value), damageType ? row("Damage type", damageType) : null);
+    });
+    return section("Equipment enhancements", row("Ownership", ownership), ...cards,
+      h("button.kgst-btn", { type: "button", onclick: () => update(n => n.enhancements.push(normalizeEnhancement({ target: isWeapon ? "weapon" : "actor", kind: isWeapon ? "attack" : "ac", value: "1" }))) },
+        h("i.fa-solid.fa-plus"), " Add enhancement"),
+      h("p.kgst-hint", { text: "Attack, AC, saves and checks accept numbers or deterministic Roll formulas such as @prof. Damage also accepts dice such as 1d6." }));
   }
 
   /**
@@ -917,11 +1000,31 @@ export class TreeDesigner extends DomApp {
     });
     const noLevel = h("input", { type: "checkbox", checked: Object.hasOwn(p, "system.prerequisites.level") });
     noLevel.addEventListener("change", () => setKey("system.prerequisites.level", noLevel.checked ? null : undefined, true));
+    const spell = grant().type === "spell";
+    const uses = grant().spellUses ?? { enabled: false, max: "1", recovery: "lr" };
+    const setUses = fn => {
+      const g = grant();
+      g.spellUses = { ...uses, ...g.spellUses };
+      fn(g.spellUses);
+      this.view.replaceNode(nodeId);
+      this.commit({ side: true });
+    };
+    const override = h("input", { type: "checkbox", checked: uses.enabled });
+    override.addEventListener("change", () => setUses(u => u.enabled = override.checked));
+    const usesMax = input("text", "spellUsesMax", uses.max, { placeholder: "1 or @prof", disabled: !uses.enabled });
+    usesMax.addEventListener("change", () => setUses(u => u.max = usesMax.value.trim() || "1"));
+    const recovery = select("spellUsesRecovery", [["lr", "Long rest"], ["sr", "Short rest"], ["day", "Day"]], uses.recovery);
+    recovery.disabled = !uses.enabled;
+    recovery.addEventListener("change", () => setUses(u => u.recovery = recovery.value));
     const simple = new Set(["name", "system.description.value", "system.prerequisites.level"]);
     const other = Object.keys(p).filter(k => !simple.has(k));
     return h("li.kgst-patch-edit",
       h("p.kgst-hint", { text: "Changes made to the item when this node grants it. The source item is not touched, so updates to it still come through." }),
       row("Name", name),
+      spell ? section("Spell uses",
+        h("label.kgst-check", override, h("span", { text: "Override spell uses" })),
+        row("Maximum uses", usesMax), row("Recovery", recovery),
+        h("p.kgst-hint", { text: "Grants an innate spell that spends its own uses instead of a spell slot. Maximum uses accepts a number or Roll formula." })) : null,
       h("label.kgst-label", { text: "Description (HTML)" }), desc, copy,
       h("label.kgst-check", noLevel, h("span", { text: "Ignore the item's level prerequisite" })),
       other.length ? h("div.kgst-fields",
@@ -1050,6 +1153,33 @@ export class TreeDesigner extends DomApp {
       this.commit({ side: !!opts.side });
     };
     const name = input("text", "treeName", t.name);
+    const kind = h("span", { text: t.kind === "equipment" ? "Equipment" : "Actor" });
+    const equipmentType = h("span", { text: ({ weapon: "Weapon", armor: "Armor or shield", equipment: "Other equipment" })[t.equipmentType] });
+    const baseItem = h("div.kgst-dropzone", { text: t.baseItem.uuid ? `${t.baseItem.name} (${typeLabel(t.baseItem.type)})` : "Drop the base equipment item here", title: t.baseItem.uuid });
+    baseItem.addEventListener("dragover", ev => { ev.preventDefault(); baseItem.classList.add("over"); });
+    baseItem.addEventListener("dragleave", () => baseItem.classList.remove("over"));
+    baseItem.addEventListener("drop", async ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      baseItem.classList.remove("over");
+      const data = dragData(ev);
+      if ( data?.type !== "Item" || !data.uuid ) return ui.notifications.warn("Drop a base equipment item here.");
+      const doc = await fromUuid(data.uuid).catch(() => null);
+      const armor = doc?.type === "equipment" && ["light", "medium", "heavy", "shield"].includes(doc.system?.type?.value);
+      const matches = t.equipmentType === "weapon" ? doc?.type === "weapon"
+        : t.equipmentType === "armor" ? armor : ["equipment", "tool", "consumable", "loot", "container", "backpack"].includes(doc?.type) && !armor;
+      if ( doc?.documentName !== "Item" || !matches ) {
+        return ui.notifications.warn(`This tree requires ${t.equipmentType === "armor" ? "light, medium or heavy armor, or a shield" : t.equipmentType === "weapon" ? "a weapon" : "other equipment (excluding armor and shields)"}.`);
+      }
+      const source = await resolveSource(doc);
+      if ( !source ) return;
+      set(tr => tr.baseItem = { uuid: source.uuid, name: source.name, img: source.img, type: source.type }, { side: true });
+    });
+    const activation = ["equipped", "attuned"].map(key => {
+      const box = h("input", { type: "checkbox", name: key, checked: t.activation[key] });
+      box.addEventListener("change", () => set(tr => tr.activation[key] = box.checked));
+      return h("label.kgst-check", box, h("span", { text: key === 'attuned' ? 'Require attunement' : 'Require equipped' }));
+    });
     name.addEventListener("change", () => set(tr => tr.name = name.value.trim() || "Skill Tree"));
     const img = input("text", "treeImg", t.img);
     img.addEventListener("change", () => set(tr => tr.img = img.value.trim()));
@@ -1107,8 +1237,15 @@ export class TreeDesigner extends DomApp {
     return h("div.kgst-form",
       section("Tree",
         row("Name", name),
+        row("Kind", kind),
+        t.kind === "equipment" ? row("Type", equipmentType) : null,
+        h("p.kgst-hint", { text: "Tree kind and equipment type are chosen when the tree is created." }),
         row("Icon", img, pickImg),
         h("label.kgst-label", { text: "Notes" }), desc),
+      t.kind === "equipment" ? section("Equipment", baseItem,
+        t.baseItem.uuid ? iconButton("fa-solid fa-xmark", "Clear base item", () => set(tr => tr.baseItem = { uuid: "", name: "", img: "", type: "" }, { side: true })) : null,
+        ...activation,
+        h('p.kgst-hint', {text:'Requiring attunement makes attached items magical and sets their Attunement to Required. The wielder must still attune to the item.'})) : null,
       section("Background",
         row("Image", bgSrc, bgPick, bgClear),
         t.background.src ? h("p.kgst-hint", { text: `${t.background.width} x ${t.background.height} pixels. The canvas takes the image's shape.` }) : null,
@@ -1164,6 +1301,7 @@ export class TreeDesigner extends DomApp {
     const change = (fn, side = true) => {
       fn(this.tree.rules[i]);
       this.tree.rules[i] = normalizeRule(this.tree.rules[i]);
+      if ( this.tree.kind !== "equipment" || this.tree.equipmentType !== "weapon" || !["attack", "crit", "damage"].includes(this.tree.rules[i].event) ) this.tree.rules[i].weaponOnly = false;
       this.commit({ side });
     };
     const event = h("select", { name: "event" }, [...groups].map(([g, list]) => h("optgroup", { label: g },
@@ -1188,6 +1326,8 @@ export class TreeDesigner extends DomApp {
     at.addEventListener("change", () => change(r => r.at = at.value));
     const max = input("number", "max", rule.max || "", { min: "0", step: "1", size: "4", placeholder: "No cap" });
     max.addEventListener("change", () => change(r => r.max = Math.max(0, Math.floor(num(max.value, 0)))));
+    const weaponOnly = h("input", { type: "checkbox", checked: rule.weaponOnly });
+    weaponOnly.addEventListener("change", () => change(r => r.weaponOnly = weaponOnly.checked));
     const unit = ev ? ev.unit[1] : "";
     return h("div.kgst-rule",
       h("div.kgst-rule-head",
@@ -1197,6 +1337,7 @@ export class TreeDesigner extends DomApp {
           this.commit({ side: true });
         })),
       row("When", event),
+      tWeaponRule(this.tree, rule) ? h("label.kgst-check", weaponOnly, h("span", { text: "Only with this weapon" })) : null,
       filter ? row(ev.filter === "class" ? "Class" : "Which", filter) : null,
       row("Gain", amount, h("span", { text: "point(s)" }), mode),
       rule.mode === "every"
@@ -1219,7 +1360,7 @@ async function grantFromDrop(data) {
     ui.notifications.warn("Drop an item (feat, spell, equipment...) or an actor.");
     return null;
   }
-  const doc = data.uuid ? await fromUuid(data.uuid).catch(() => null) : null;
+  let doc = data.uuid ? await fromUuid(data.uuid).catch(() => null) : null;
   if ( !doc ) {
     ui.notifications.warn("That could not be found. Items and actors must be in the world or a compendium.");
     return null;
@@ -1229,6 +1370,8 @@ async function grantFromDrop(data) {
       ui.notifications.warn("Drop an actor from the Actors sidebar or a compendium, not a token.");
       return null;
     }
+    doc = await resolveSource(doc);
+    if ( !doc ) return null;
     return { ...summonGrant(doc), _doc: doc };
   }
   if ( doc.documentName !== "Item" ) return null;
@@ -1236,7 +1379,20 @@ async function grantFromDrop(data) {
     ui.notifications.warn("Classes and subclasses cannot be granted by a skill tree node.");
     return null;
   }
+  doc = await resolveSource(doc);
+  if ( !doc ) return null;
   return { kind: "item", uuid: doc.uuid, name: doc.name, img: doc.img, type: doc.type, _doc: doc };
+}
+
+function tWeaponRule(tree, rule) {
+  return tree.kind === "equipment" && tree.equipmentType === "weapon" && ["attack", "crit", "damage"].includes(rule.event);
+}
+
+function configChoices(config = {}) {
+  return Object.entries(config).map(([key, value]) => {
+    const label = typeof value === "string" ? value : (value?.label ?? key);
+    return [key, game.i18n.localize(label)];
+  });
 }
 
 function typeLabel(type) {
