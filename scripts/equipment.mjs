@@ -1,4 +1,4 @@
-import { MODULE_ID, activeGM } from './util.mjs';
+import { MODULE_ID, activeGM, wrapMethod } from './util.mjs';
 import { getTree } from './trees.mjs';
 import { currentStats, rulePoints } from './events.mjs';
 import { nodeStatus, refundPlan, grantItemData } from './progress.mjs';
@@ -288,8 +288,7 @@ export function registerEquipment() {
   registerEquipmentBreakdown();
   registerEquipmentGrantHooks(equipmentRequest);
   registerEquipmentTransfers({request:equipmentRequest,changed});
-  const proto=CONFIG.Actor.documentClass.prototype, original=proto.prepareData;
-  proto.prepareData=function(...args){for(const c of (projections.get(this)??[]).slice().reverse())if(c.obj[c.key]===c.after)c.obj[c.key]=c.before;projections.delete(this);const result=original.apply(this,args);if(game.ready)try{project(this);}catch(err){console.error('KG equipment projection',err);}return result;};
+  wrapMethod('CONFIG.Actor.documentClass.prototype.prepareData',function(wrapped,...args){for(const c of (projections.get(this)??[]).slice().reverse())if(c.obj[c.key]===c.after)c.obj[c.key]=c.before;projections.delete(this);const result=wrapped(...args);if(game.ready)try{project(this);}catch(err){console.error('KG equipment projection',err);}return result;});
   // Flat or dice damage is injected into the weapon activity roll only; other weapons never see it.
   Hooks.on('dnd5e.preRollDamageV2',(config,dialog,message)=>{
     const item=config.subject?.item??config.subject?.parent;const info=item&&cache.get(item.uuid);if(config.subject?.type!=='attack'||!info||!activation(item,info.tree).active)return;

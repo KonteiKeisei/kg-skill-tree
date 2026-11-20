@@ -1,4 +1,4 @@
-import { MODULE_ID, activeGM } from './util.mjs';
+import { MODULE_ID, activeGM, wrapMethod } from './util.mjs';
 import { grantItemData } from './progress.mjs';
 import {equipmentActors} from './equipment-transfers.mjs';
 const copy=x=>foundry.utils.deepClone(x);
@@ -120,22 +120,22 @@ export async function recoverEquipmentResources(ledger,actor,{isLong=false,newDa
  await ledger.update(updates);
 }
 export function registerEquipmentGrantHooks(request){
- const cast=CONFIG.DND5E?.activityTypes?.cast?.documentClass?.prototype;
- if(cast){const original=cast.use,originalCache=cast.getCachedSpellData;
+ const castPath='CONFIG.DND5E.activityTypes.cast.documentClass.prototype';
+ if(CONFIG.DND5E?.activityTypes?.cast?.documentClass?.prototype){
   // These activities already link to our usable actor spell. A second dnd5e cache would duplicate its charges.
-  cast.getCachedSpellData=function(...args){
+  wrapMethod(`${castPath}.getCachedSpellData`,function(wrapped,...args){
    if(Object.values(this.item?.getFlag(MODULE_ID,'equipment')?.castActivities??{}).includes(this.id))return;
-   return originalCache.apply(this,args);
-  };
-  cast.use=function(...args){
+   return wrapped(...args);
+  },'MIXED');
+  wrapMethod(`${castPath}.use`,function(wrapped,...args){
   const marker=this.item?.getFlag(MODULE_ID,'equipment');
   if(marker&&Object.values(marker.castActivities??{}).includes(this.id)){
    const spell=foundry.utils.fromUuidSync(this.spell.uuid),grant=spell?.getFlag(MODULE_ID,'equipmentGrant');
    if(!grant||grant.instanceId!==marker.instanceId||spell.actor!==this.actor){ui.notifications.warn('Equip and attune this item before casting its granted spell.');return;}
    return spell.use(...args);
   }
-  return original.apply(this,args);
- };}
+  return wrapped(...args);
+ },'MIXED');}
  Hooks.on('updateItem',(item,changes,options)=>{if(options.kgstEquipmentProjection||activeGM()?.id!==game.user.id)return;if(item.getFlag(MODULE_ID,'equipmentGrant'))captureEquipmentUsage(item).catch(console.error);});
  Hooks.on('dnd5e.restCompleted',async(actor,result,config)=>{
   if(!actor.isOwner)return;

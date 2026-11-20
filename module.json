@@ -2,14 +2,14 @@
   "id": "kg-skill-tree",
   "title": "KG Skill Trees",
   "description": "Design skill trees on any background image, unlock them for characters, and let players spend points earned from level ups and other events on feats, items and summons. Adds a Skill Tree tab to dnd5e and Tidy 5e character sheets.",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "license": "LICENSE",
   "readme": "https://github.com/KonteiKeisei/kg-skill-tree#readme",
   "url": "https://github.com/KonteiKeisei/kg-skill-tree",
   "bugs": "https://github.com/KonteiKeisei/kg-skill-tree/issues",
   "changelog": "https://github.com/KonteiKeisei/kg-skill-tree/blob/main/CHANGELOG.md",
   "manifest": "https://github.com/KonteiKeisei/kg-skill-tree/releases/latest/download/module.json",
-  "download": "https://github.com/KonteiKeisei/kg-skill-tree/releases/download/v0.3.6/kg-skill-tree-0.3.6.zip",
+  "download": "https://github.com/KonteiKeisei/kg-skill-tree/releases/download/v0.3.7/kg-skill-tree-0.3.7.zip",
   "compatibility": {
     "minimum": "13",
     "verified": "14",
@@ -40,6 +40,11 @@
         "id": "kg-pc-history",
         "type": "module",
         "reason": "Skill tree purchases are recorded in the character's history."
+      },
+      {
+        "id": "lib-wrapper",
+        "type": "module",
+        "reason": "Equipment trees extend actor data preparation and spell casting through libWrapper when it is installed, so they chain cleanly with DAE and other modules."
       }
     ]
   },

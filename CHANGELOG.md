@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.7
+
+- Uses libWrapper, when it is installed, for the three methods equipment trees extend: the actor's `prepareData` and the dnd5e cast activity's `use` and `getCachedSpellData`. They now chain cleanly with other modules' wrappers, and libWrapper no longer warns that KG Skill Trees and DAE (which wraps `prepareData` too) "modify the same FoundryVTT functionality". Without libWrapper, they are patched in place as before. No change in behavior.
+
 ## 0.3.6
 
 - Equipment bonuses omit empty or zero base terms instead of adding an unnecessary +0. This removes the extra zero entry shown as Unknown modifier in roll breakdowns.

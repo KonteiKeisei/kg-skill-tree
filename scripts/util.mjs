@@ -179,6 +179,29 @@ export function warn(...args) {
   console.warn(`${MODULE_ID} |`, ...args);
 }
 
+/**
+ * Wrap a method named by its global path (as libWrapper takes it). `fn(wrapped, ...args)` runs with the
+ * instance as `this`. With libWrapper active the wrapper is registered there, so it chains cleanly with
+ * other modules' wrappers of the same method (DAE wraps Actor#prepareData, for example) and libWrapper
+ * reports no conflict. Without it, the method is replaced in place, as before.
+ * Use "WRAPPER" when `fn` always calls `wrapped`, "MIXED" when it sometimes returns without it.
+ */
+export function wrapMethod(target, fn, type = "WRAPPER") {
+  if ( globalThis.libWrapper && game.modules.get("lib-wrapper")?.active ) {
+    globalThis.libWrapper.register(MODULE_ID, target, fn, type);
+    return true;
+  }
+  const path = target.split("."), key = path.pop();
+  const owner = path.reduce((o, k) => o?.[k], globalThis);
+  const original = owner?.[key];
+  if ( typeof original !== "function" ) {
+    warn(`Cannot wrap ${target}: not found.`);
+    return false;
+  }
+  owner[key] = function(...args) { return fn.call(this, original.bind(this), ...args); };
+  return true;
+}
+
 /** Small element builder: h("div.cls", { attrs }, children). */
 export function h(tag, attrs = {}, ...children) {
   // The second argument is optional: a node, text or list there is the first child.
